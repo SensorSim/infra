@@ -12,10 +12,18 @@ services:
   archiver:
     image: archiver:local
     container_name: sensorsim-archiver
-    ports:
-      - "8081:8080"
     environment:
       ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=archiver;Username=postgres;Password=postgres
       ASPNETCORE_URLS: http://0.0.0.0:8080
+    ports:
+      - "8081:8080"
     depends_on:
       - postgres
+
+  sensor-simulator:
+    image: sensorsimulator:local
+    container_name: sensorsim-sensor
+    environment:
+      ArchiverUrl: http://archiver:8080
+    depends_on:
+      - archiver
