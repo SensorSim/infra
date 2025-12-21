@@ -1,0 +1,250 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: archiver
+  namespace: reactor-monitor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: archiver
+  template:
+    metadata:
+      labels:
+        app: archiver
+    spec:
+      containers:
+        - name: archiver
+          image: archiver:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: ConnectionStrings__Postgres
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: connectionString
+            - name: ASPNETCORE_URLS
+              value: http://0.0.0.0:8080
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: archiver
+  namespace: reactor-monitor
+spec:
+  selector:
+    app: archiver
+  ports:
+    - port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sensor-manager
+  namespace: reactor-monitor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sensor-manager
+  template:
+    metadata:
+      labels:
+        app: sensor-manager
+    spec:
+      containers:
+        - name: sensor-manager
+          image: sensormanager:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: ConnectionStrings__Postgres
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: connectionString
+            - name: Kafka__BootstrapServers
+              valueFrom:
+                configMapKeyRef:
+                  name: reactor-config
+                  key: KAFKA_BOOTSTRAP
+            - name: Kafka__ConfigTopic
+              valueFrom:
+                configMapKeyRef:
+                  name: reactor-config
+                  key: KAFKA_CONFIG_TOPIC
+            - name: ASPNETCORE_URLS
+              value: http://0.0.0.0:8080
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sensor-manager
+  namespace: reactor-monitor
+spec:
+  selector:
+    app: sensor-manager
+  ports:
+    - port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controller
+  namespace: reactor-monitor
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: controller
+  template:
+    metadata:
+      labels:
+        app: controller
+    spec:
+      containers:
+        - name: controller
+          image: controller:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: Kafka__BootstrapServers
+              valueFrom:
+                configMapKeyRef:
+                  name: reactor-config
+                  key: KAFKA_BOOTSTRAP
+            - name: Kafka__Topic
+              valueFrom:
+                configMapKeyRef:
+                  name: reactor-config
+                  key: KAFKA_TOPIC
+            - name: Redis__ConnectionString
+              valueFrom:
+                configMapKeyRef:
+                  name: reactor-config
+                  key: REDIS_CONNECTION
+            - name: ASPNETCORE_URLS
+              value: http://0.0.0.0:8080
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: controller
+  namespace: reactor-monitor
+spec:
+  selector:
+    app: controller
+  ports:
+    - port: 8080
+      targetPort: 8080
+  type: LoadBalancer
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sensor-simulator
+  namespace: reactor-monitor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sensor-simulator
+  template:
+    metadata:
+      labels:
+        app: sensor-simulator
+    spec:
+      containers:
+        - name: sensor-simulator
+          image: sensorsimulator:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: ArchiverUrl
+              value: http://archiver:8080
+            - name: SensorManagerUrl
+              value: http://sensor-manager:8080
+            - name: Kafka__BootstrapServers
+              valueFrom:
+                configMapKeyRef:
+                  name: reactor-config
+                  key: KAFKA_BOOTSTRAP
+            - name: Kafka__Topic
+              valueFrom:
+                configMapKeyRef:
+                  name: reactor-config
+                  key: KAFKA_TOPIC
+            - name: Kafka__ConfigTopic
+              valueFrom:
+                configMapKeyRef:
+                  name: reactor-config
+                  key: KAFKA_CONFIG_TOPIC
+            - name: ASPNETCORE_URLS
+              value: http://0.0.0.0:8080
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sensor-simulator
+  namespace: reactor-monitor
+spec:
+  selector:
+    app: sensor-simulator
+  ports:
+    - port: 8080
+      targetPort: 8080
