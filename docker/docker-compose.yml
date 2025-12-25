@@ -1,45 +1,43 @@
 services:
-  postgres:
-    image: postgres:16
-    container_name: sensorsim-postgres
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: archiver
-    ports:
-      - "5432:5432"
-
   redis:
     image: redis:7
     container_name: sensorsim-redis
     ports:
-      - "6379:6379"
-
+    - 6379:6379
+    networks:
+    - core
   archiver:
     image: archiver:local
     container_name: sensorsim-archiver
     environment:
-      ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=archiver;Username=postgres;Password=postgres
+      ConnectionStrings__Postgres: Host=postgres-archiver;Port=5432;Database=archiver;Username=archiver;Password=archiver
       ASPNETCORE_URLS: http://0.0.0.0:8080
     ports:
-      - "8081:8080"
+    - 8081:8080
     depends_on:
-      - postgres
-
+      postgres-archiver:
+        condition: service_healthy
+    networks:
+    - core
+    - arch-db-net
   sensor-manager:
     image: sensormanager:local
     container_name: sensorsim-sensormanager
     environment:
-      ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=archiver;Username=postgres;Password=postgres
+      ConnectionStrings__Postgres: Host=postgres-sensormanager;Port=5432;Database=sensormanager;Username=sensormanager;Password=sensormanager
       Kafka__BootstrapServers: kafka:29092
       Kafka__ConfigTopic: sensor-config-events
       ASPNETCORE_URLS: http://0.0.0.0:8080
     ports:
-      - "8083:8080"
+    - 8083:8080
     depends_on:
-      - postgres
-      - kafka
-
+      postgres-sensormanager:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    networks:
+    - core
+    - sm-db-net
   sensor-simulator:
     image: sensorsimulator:local
     container_name: sensorsim-sensor
@@ -50,53 +48,55 @@ services:
       Kafka__Topic: measurements
       Kafka__ConfigTopic: sensor-config-events
     depends_on:
-      - archiver
-      - sensor-manager
+    - archiver
+    - sensor-manager
     ports:
-      - "8084:8080"
-
+    - 8084:8080
+    networks:
+    - core
   zookeeper:
     image: confluentinc/cp-zookeeper:7.6.1
     container_name: sensorsim-zookeeper
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
-
-
+    networks:
+    - core
   kafka:
     image: confluentinc/cp-kafka:7.6.1
     depends_on:
     - zookeeper
     ports:
-    - "9092:9092"     # host access
-    - "29092:29092"   # optional; not required on host but useful for debugging
+    - 9092:9092
+    - 29092:29092
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-    
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+    networks:
+    - core
   kafka-init:
     image: confluentinc/cp-kafka:7.5.0
     depends_on:
-      - kafka
-    entrypoint: ["/bin/sh","-c"]
-    command: >
-      "
-      echo 'Waiting for Kafka...';
-      cub kafka-ready -b kafka:29092 1 60;
-      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic measurements --partitions 1 --replication-factor 1;
-      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic sensor-config-events --partitions 1 --replication-factor 1;
-      echo 'Topics ensured.';
-      "
+    - kafka
+    entrypoint:
+    - /bin/sh
+    - -c
+    command: '" echo ''Waiting for Kafka...''; cub kafka-ready -b kafka:29092 1 60;
+      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic
+      measurements --partitions 1 --replication-factor 1; kafka-topics --bootstrap-server
+      kafka:29092 --create --if-not-exists --topic sensor-config-events --partitions
+      1 --replication-factor 1; echo ''Topics ensured.''; "
 
-
+      '
+    networks:
+    - core
   controller:
     image: controller:local
     container_name: sensorsim-controller
@@ -106,7 +106,51 @@ services:
       Redis__ConnectionString: redis:6379
       ASPNETCORE_URLS: http://0.0.0.0:8080
     ports:
-      - "8082:8080"
+    - 8082:8080
     depends_on:
-      - kafka
-      - redis
+    - kafka
+    - redis
+    networks:
+    - core
+  postgres-sensormanager:
+    image: postgres:16
+    container_name: sensorsim-postgres-sensormanager
+    environment:
+      POSTGRES_USER: sensormanager
+      POSTGRES_PASSWORD: sensormanager
+      POSTGRES_DB: sensormanager
+    ports:
+    - 5432:5432
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -U sensormanager -d sensormanager
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    networks:
+    - sm-db-net
+  postgres-archiver:
+    image: postgres:16
+    container_name: sensorsim-postgres-archiver
+    environment:
+      POSTGRES_USER: archiver
+      POSTGRES_PASSWORD: archiver
+      POSTGRES_DB: archiver
+    ports:
+    - 5433:5432
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -U archiver -d archiver
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    networks:
+    - arch-db-net
+networks:
+  core: {}
+  sm-db-net:
+    internal: true
+  arch-db-net:
+    internal: true
