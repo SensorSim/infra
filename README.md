@@ -1,43 +1,45 @@
 # Infrastructure (Docker Compose)
 
-Everything needed for local development is under `infra/docker`.
+Local dev stack for the whole system.
 
-## What gets started
+Starts:
 
-- Kafka + Zookeeper
-- Kafka init container (creates topics)
+- Kafka + ZooKeeper (plus topic init)
 - Redis
-- Postgres for SensorManager (`postgres-sensormanager`)
-- Postgres for Archiver (`postgres-archiver`)
-- The 4 microservices
+- Postgres (SensorManager)
+- Postgres (Archiver)
+- SensorManager, SensorSimulator, Archiver, Controller
 
-## Commands
+## Branching
 
-Build + start:
+- `dev` – development
+- `main` – stable / demo-ready
+
+## Run
+
+From the repo root:
+
 ```bash
-cd infra/docker
-docker compose build
-docker compose up -d
+docker compose -f infra/docker/docker-compose.yml up --build
 ```
 
 Stop:
+
 ```bash
-cd infra/docker
-docker compose down
+docker compose -f infra/docker/docker-compose.yml down
 ```
 
-Stop + wipe databases:
+Clean state (wipe volumes):
+
 ```bash
-cd infra/docker
-docker compose down -v
+docker compose -f infra/docker/docker-compose.yml down -v
 ```
 
-## Ports
+## Ports (defaults)
 
 - 8081 Archiver
 - 8082 Controller
 - 8083 SensorManager
 - 8084 SensorSimulator
-- 5432/5433 Postgres (internal in compose; host mapping depends on compose)
 - 6379 Redis
 - 9092 Kafka
