@@ -2,6 +2,17 @@
 
 Local dev stack for the whole system.
 
+## Images
+
+By default this stack **pulls backend images from GHCR**:
+
+- `ghcr.io/sensorsim/reactor-monitor-sensormanager:latest`
+- `ghcr.io/sensorsim/reactor-monitor-sensorsimulator:latest`
+- `ghcr.io/sensorsim/reactor-monitor-controller:latest`
+- `ghcr.io/sensorsim/reactor-monitor-archiver:latest`
+
+If you want to run local builds instead, change the `image:` lines back to `*:local` and add `build:` blocks.
+
 Starts:
 
 - Kafka + ZooKeeper (plus topic init)

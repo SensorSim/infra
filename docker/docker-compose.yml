@@ -7,7 +7,7 @@ services:
     networks:
     - core
   archiver:
-    image: archiver:local
+    image: ghcr.io/sensorsim/reactor-monitor-archiver:latest
     container_name: sensorsim-archiver
     environment:
       ConnectionStrings__Postgres: Host=postgres-archiver;Port=5432;Database=archiver;Username=archiver;Password=archiver
@@ -21,7 +21,7 @@ services:
     - core
     - arch-db-net
   sensor-manager:
-    image: sensormanager:local
+    image: ghcr.io/sensorsim/reactor-monitor-sensormanager:latest
     container_name: sensorsim-sensormanager
     environment:
       ConnectionStrings__Postgres: Host=postgres-sensormanager;Port=5432;Database=sensormanager;Username=sensormanager;Password=sensormanager
@@ -39,7 +39,7 @@ services:
     - core
     - sm-db-net
   sensor-simulator:
-    image: sensorsimulator:local
+    image: ghcr.io/sensorsim/reactor-monitor-sensorsimulator:latest
     container_name: sensorsim-sensor
     environment:
       ArchiverUrl: http://archiver:8080
@@ -98,7 +98,7 @@ services:
     networks:
     - core
   controller:
-    image: controller:local
+    image: ghcr.io/sensorsim/reactor-monitor-controller:latest
     container_name: sensorsim-controller
     environment:
       Kafka__BootstrapServers: kafka:29092
